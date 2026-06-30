@@ -14,7 +14,7 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().optional().default(""),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
   GEMINI_API_KEY: z.string().optional().default(""),
-  GEMINI_MODEL: z.string().default("gemini-2.0-flash"),
+  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   XAI_API_KEY: z.string().optional().default(""),
   XAI_MODEL: z.string().default("grok-2-latest"),
   ROUTING_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.7),
