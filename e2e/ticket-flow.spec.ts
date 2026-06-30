@@ -22,9 +22,10 @@ test("requester can submit a ticket and see it", async ({ page }) => {
   );
   await page.click('button[type="submit"]');
 
-  // Redirects to the ticket detail page.
-  await page.waitForURL(/\/tickets\/[a-z0-9]+$/);
-  await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  // Redirects to the ticket detail page (cuid path segment, not "new").
+  // First POST in dev is slow (route compile + pg-boss cold start), so allow time.
+  await page.waitForURL(/\/tickets\/c[a-z0-9]{20,}$/, { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 15_000 });
 });
 
 test("manager can view the dashboard with system health", async ({ page }) => {
