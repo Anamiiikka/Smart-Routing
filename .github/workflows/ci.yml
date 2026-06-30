@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      # Dummy values — all pages are dynamic, so no real DB is hit at build time.
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?sslmode=disable"
+      DIRECT_URL: "postgresql://user:pass@localhost:5432/db?sslmode=disable"
+      AUTH_SECRET: "ci-placeholder-secret-ci-placeholder-secret"
+      LLM_PROVIDER: "mock"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build

@@ -1,0 +1,178 @@
+// Smart Issue Routing — data model
+// Pooled URL for the app; direct URL for migrations (Neon).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  AGENT
+  REQUESTER
+}
+
+enum TicketStatus {
+  NEW
+  TRIAGED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(REQUESTER)
+  teamId       String?
+  team         Team?    @relation(fields: [teamId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  requestedTickets Ticket[]   @relation("requester")
+  assignedTickets  Ticket[]   @relation("assignee")
+  comments         Comment[]
+  auditLogs        AuditLog[]
+
+  @@index([role])
+  @@index([teamId])
+}
+
+model Team {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  members    User[]
+  tickets    Ticket[]
+  categories Category[]
+  createdAt  DateTime   @default(now())
+}
+
+model Category {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String?
+  // SLA windows in minutes, scaled by priority at triage time.
+  slaResponseMins   Int
+  slaResolutionMins Int
+  defaultTeamId     String?
+  defaultTeam       Team?    @relation(fields: [defaultTeamId], references: [id])
+  tickets           Ticket[]
+  createdAt         DateTime @default(now())
+}
+
+model Ticket {
+  id          String       @id @default(cuid())
+  number      Int          @unique @default(autoincrement())
+  title       String
+  description String
+  status      TicketStatus @default(NEW)
+  priority    Priority     @default(MEDIUM)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  teamId     String?
+  team       Team?     @relation(fields: [teamId], references: [id])
+
+  requesterId String
+  requester   User    @relation("requester", fields: [requesterId], references: [id])
+  assigneeId  String?
+  assignee    User?   @relation("assignee", fields: [assigneeId], references: [id])
+
+  // SLA tracking
+  responseDueAt      DateTime?
+  resolutionDueAt    DateTime?
+  firstResponseAt    DateTime?
+  resolvedAt         DateTime?
+  responseBreached   Boolean   @default(false)
+  resolutionBreached Boolean   @default(false)
+
+  // Routing
+  autoRouted       Boolean           @default(false)
+  routingDecisions RoutingDecision[]
+
+  comments  Comment[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([assigneeId])
+  @@index([teamId])
+  @@index([createdAt])
+}
+
+model RoutingDecision {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  provider            String
+  model               String
+  suggestedCategoryId String?
+  suggestedPriority   Priority?
+  suggestedTeamId     String?
+  confidence          Float
+  rationale           String
+  applied             Boolean   @default(false)
+  latencyMs           Int
+  tokensUsed          Int?
+  error               String?
+  createdAt           DateTime  @default(now())
+
+  @@index([ticketId])
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  diff      Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model SystemMetricSnapshot {
+  id              String   @id @default(cuid())
+  queueDepth      Int
+  llmAvgLatencyMs Int?
+  llmErrorRate    Float?
+  openTickets     Int
+  breachedTickets Int
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}

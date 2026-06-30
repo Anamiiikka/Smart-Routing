@@ -1,0 +1,35 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# env files — NEVER commit secrets
+.env
+.env*.local
+
+# prisma
+/prisma/*.db
+
+# testing
+/coverage
+/playwright-report
+/test-results
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor
+.DS_Store
+*.pem
+.vscode/*
+!.vscode/extensions.json
+.idea
