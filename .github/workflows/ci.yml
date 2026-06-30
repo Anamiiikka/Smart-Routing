@@ -20,7 +20,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      # `npm install` (not `npm ci`) so cross-platform optional native deps
+      # (@emnapi/*, platform-specific binaries) reconcile on the Linux runner
+      # instead of failing strict lockfile validation.
+      - run: npm install --no-audit --no-fund
       - run: npx prisma generate
       - name: Typecheck
         run: npm run typecheck
