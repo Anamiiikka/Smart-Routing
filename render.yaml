@@ -1,0 +1,59 @@
+# Render Blueprint — deploys BOTH the web app and the pg-boss worker.
+# In the Render dashboard: New > Blueprint > connect this repo. Then fill in the
+# secret env vars marked `sync: false` (DATABASE_URL, DIRECT_URL, GEMINI_API_KEY).
+#
+# Note: Background "worker" services require a paid Render plan. If you're on the
+# free tier, deploy the web service here and run the worker on Railway/Fly using
+# the included Dockerfile (see README "Deployment").
+
+services:
+  # ---- Next.js web app ----
+  - type: web
+    name: smart-issue-routing-web
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL # pooled Neon URL
+        sync: false
+      - key: DIRECT_URL # direct (unpooled) Neon URL
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_TRUST_HOST
+        value: "true"
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: NODE_ENV
+        value: production
+
+  # ---- pg-boss worker (routing + SLA sweeps) ----
+  - type: worker
+    name: smart-issue-routing-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm run worker
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      # The shared env schema requires AUTH_SECRET even though the worker
+      # doesn't verify sessions; any non-empty value works.
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: NODE_ENV
+        value: production

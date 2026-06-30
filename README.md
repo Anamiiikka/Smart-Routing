@@ -126,11 +126,42 @@ deterministic, so tests and CI run without an API key.
 
 ## Deployment
 
-- **Web app** → Vercel (or any Node host). Set the env vars above.
-- **Worker** → a long-running host (Railway, Render, Fly). Run `npm run worker`.
-  Vercel's serverless model isn't suited to a persistent queue worker.
-- **Database** → Neon. Use the pooled URL for `DATABASE_URL` and the direct URL
-  for `DIRECT_URL`. Run `npm run db:deploy` in your release step.
+The app and the worker deploy as **two services** sharing one Neon database. The
+worker must run as a long-lived process (Vercel's serverless model can't host a
+persistent queue worker).
+
+### Database (once)
+Apply migrations to your Neon DB before/at first deploy:
+```bash
+npm run db:deploy   # prisma migrate deploy
+npm run db:seed     # optional: demo data
+```
+
+### Required env vars
+| Var | Web | Worker | Notes |
+|---|:--:|:--:|---|
+| `DATABASE_URL` | ✓ | ✓ | pooled Neon URL (`…-pooler…`) |
+| `DIRECT_URL` | ✓ | ✓ | direct Neon URL (migrations + pg-boss) |
+| `AUTH_SECRET` | ✓ | ✓ | random 32-byte base64 (worker needs it only to satisfy the shared env schema) |
+| `AUTH_TRUST_HOST` | ✓ | – | `"true"` |
+| `LLM_PROVIDER` | ✓ | ✓ | `gemini` / `openai` / `grok` / `mock` |
+| `GEMINI_API_KEY` (or provider key) | ✓ | ✓ | the worker is what calls the LLM |
+| `GEMINI_MODEL` | ✓ | ✓ | e.g. `gemini-2.5-flash` |
+
+### Option A — Render Blueprint (both services, one platform)
+1. Push to GitHub (done).
+2. Render → **New > Blueprint** → connect this repo. It reads [`render.yaml`](render.yaml)
+   and creates the **web** + **worker** services.
+3. Fill in the `sync: false` secrets (`DATABASE_URL`, `DIRECT_URL`, `GEMINI_API_KEY`).
+4. Deploy. Health check: `GET /api/health`.
+   (Background workers need a paid Render plan — see Option B for a free worker.)
+
+### Option B — Vercel (web) + Railway/Fly (worker)
+- **Web → Vercel:** import the repo. Vercel auto-detects Next.js; build runs
+  `prisma generate && next build` (the `build` script). Add the web env vars above.
+- **Worker → Railway or Fly:** deploy using the included [`Dockerfile`](Dockerfile)
+  (it runs `npm run worker`). Add the worker env vars above. On Railway: "New
+  Project → Deploy from repo"; it auto-detects the Dockerfile.
 
 ## Testing
 
