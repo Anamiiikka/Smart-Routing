@@ -2,9 +2,11 @@
 # In the Render dashboard: New > Blueprint > connect this repo. Then fill in the
 # secret env vars marked `sync: false` (DATABASE_URL, DIRECT_URL, GEMINI_API_KEY).
 #
-# Note: Background "worker" services require a paid Render plan. If you're on the
+# Note: Background "worker" services require a paid Render plan (Starter). On the
 # free tier, deploy the web service here and run the worker on Railway/Fly using
 # the included Dockerfile (see README "Deployment").
+#
+# Region `ohio` (US-East) is chosen to sit close to a Neon `us-east-1` database.
 
 services:
   # ---- Next.js web app ----
@@ -12,10 +14,13 @@ services:
     name: smart-issue-routing-web
     runtime: node
     plan: free
+    region: ohio
     buildCommand: npm install && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_VERSION
+        value: "20"
       - key: DATABASE_URL # pooled Neon URL
         sync: false
       - key: DIRECT_URL # direct (unpooled) Neon URL
@@ -38,9 +43,12 @@ services:
     name: smart-issue-routing-worker
     runtime: node
     plan: starter
+    region: ohio
     buildCommand: npm install
     startCommand: npm run worker
     envVars:
+      - key: NODE_VERSION
+        value: "20"
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL
